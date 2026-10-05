@@ -23,6 +23,7 @@ interface OperationsInboxProps {
   onReviewApproval: (invoice: Invoice, workflow?: WorkflowRun) => void;
   onViewWorkflow: (invoice: Invoice, workflow?: WorkflowRun) => void;
   onRunAgent: (invoiceId: string) => void;
+  onSelectInvoice?: (invoice: Invoice, workflow?: WorkflowRun) => void;
   isRunningAgent?: boolean;
 }
 
@@ -32,6 +33,7 @@ export const OperationsInbox: React.FC<OperationsInboxProps> = ({
   onReviewApproval,
   onViewWorkflow,
   onRunAgent,
+  onSelectInvoice,
   isRunningAgent,
 }) => {
   const [filter, setFilter] = useState<'ALL' | 'ATTENTION' | 'COMPLETED' | 'BLOCKED'>('ALL');
@@ -109,7 +111,11 @@ export const OperationsInbox: React.FC<OperationsInboxProps> = ({
                 className="p-4 sm:p-5 hover:bg-canvas-850/50 transition-colors flex flex-col md:flex-row md:items-center justify-between gap-4"
               >
                 {/* Left Column: Vendor & Invoice Details */}
-                <div className="flex items-start gap-3.5 min-w-0">
+                <div
+                  onClick={() => onSelectInvoice?.(inv, wf)}
+                  className={`flex items-start gap-3.5 min-w-0 ${onSelectInvoice ? 'cursor-pointer group' : ''}`}
+                  title={onSelectInvoice ? 'Click to inspect invoice details' : undefined}
+                >
                   <div
                     className={`p-2.5 rounded-xl shrink-0 mt-0.5 border ${
                       isApprovalNeeded
@@ -129,7 +135,9 @@ export const OperationsInbox: React.FC<OperationsInboxProps> = ({
 
                   <div className="min-w-0 space-y-1">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-semibold text-graphite-100 text-sm">{inv.vendorName}</span>
+                      <span className="font-semibold text-graphite-100 text-sm group-hover:text-blue-300 transition-colors">
+                        {inv.vendorName}
+                      </span>
                       <span className="text-xs font-mono text-graphite-400">#{inv.invoiceNumber}</span>
                       <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full border ${statusInfo.className}`}>
                         {statusInfo.label}
@@ -182,6 +190,17 @@ export const OperationsInbox: React.FC<OperationsInboxProps> = ({
                   </div>
 
                   <div className="flex items-center gap-2">
+                    {onSelectInvoice && (
+                      <button
+                        onClick={() => onSelectInvoice(inv, wf)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-canvas-800 hover:bg-canvas-750 text-graphite-300 hover:text-graphite-100 border border-canvas-700 text-xs font-medium transition-all"
+                        title="Inspect invoice details"
+                      >
+                        <FileText className="w-3.5 h-3.5" />
+                        <span>Inspect</span>
+                      </button>
+                    )}
+
                     {isApprovalNeeded && (
                       <button
                         onClick={() => onReviewApproval(inv, wf)}

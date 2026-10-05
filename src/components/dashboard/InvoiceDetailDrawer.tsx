@@ -13,6 +13,7 @@ import {
   Play,
   Eye,
   ExternalLink,
+  ShieldAlert,
 } from 'lucide-react';
 import { Invoice, WorkflowRun } from '@/types';
 import { formatCurrency, formatDate, getStatusBadge, getRiskColorClass } from '@/lib/formatters';
@@ -184,8 +185,9 @@ export const InvoiceDetailDrawer: React.FC<InvoiceDetailDrawerProps> = ({
             {invoice.status === 'AWAITING_APPROVAL' && (
               <button
                 onClick={onOpenApproval}
-                className="flex-1 py-2 px-3 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-semibold text-xs transition-all flex items-center justify-center gap-1.5 shadow-sm"
+                className="flex-1 py-2 px-3 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-semibold text-xs transition-all flex items-center justify-center gap-1.5 shadow-sm active:scale-[0.98]"
               >
+                <ShieldAlert className="w-3.5 h-3.5" />
                 <span>Review Approval</span>
               </button>
             )}
@@ -193,7 +195,7 @@ export const InvoiceDetailDrawer: React.FC<InvoiceDetailDrawerProps> = ({
             {invoice.status === 'PENDING' && (
               <button
                 onClick={() => onRunAgent(invoice.id)}
-                className="flex-1 py-2 px-3 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs transition-all flex items-center justify-center gap-1.5 shadow-sm"
+                className="flex-1 py-2 px-3 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs transition-all flex items-center justify-center gap-1.5 shadow-sm active:scale-[0.98]"
               >
                 <Play className="w-3.5 h-3.5" />
                 <span>Run Agent</span>
@@ -202,10 +204,11 @@ export const InvoiceDetailDrawer: React.FC<InvoiceDetailDrawerProps> = ({
 
             <button
               onClick={onViewWorkflow}
-              className="flex-1 py-2 px-3 rounded-lg bg-canvas-800 hover:bg-canvas-750 text-graphite-200 border border-canvas-700 font-medium text-xs transition-all flex items-center justify-center gap-1.5"
+              className="flex-1 py-2 px-3 rounded-lg bg-canvas-800 hover:bg-canvas-700 hover:border-blue-500/50 text-graphite-100 border border-canvas-700 font-medium text-xs transition-all flex items-center justify-center gap-1.5 shadow-sm active:scale-[0.98]"
+              title={workflow ? 'Inspect agentic workflow execution graph' : 'Run agent to inspect workflow graph'}
             >
-              <Eye className="w-3.5 h-3.5" />
-              <span>Inspect Workflow</span>
+              <Eye className="w-3.5 h-3.5 text-blue-400" />
+              <span>{workflow ? 'Inspect Workflow' : 'Run & Inspect Workflow'}</span>
             </button>
           </div>
         </div>

@@ -26,7 +26,7 @@ export const TrustSecurity: React.FC = () => {
       icon: FileText,
     },
     {
-      title: 'Immutable Audit Trail',
+      title: 'Tamper-Evident Audit Trail',
       desc: 'Every timestamp, tool input, output, and reviewer signature is cryptographically traceable in the operations ledger.',
       icon: CheckCircle2,
     },

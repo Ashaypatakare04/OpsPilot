@@ -34,6 +34,26 @@ export const Sidebar: React.FC<SidebarProps> = ({ onResetDemo, isResetting }) =>
     { name: 'Settings & Policy', href: '/app/settings', icon: Settings },
   ];
 
+  const [localResetting, setLocalResetting] = React.useState(false);
+
+  const handleResetClick = async () => {
+    if (onResetDemo) {
+      onResetDemo();
+      return;
+    }
+    setLocalResetting(true);
+    try {
+      await fetch('/api/reset', { method: 'POST' });
+      window.location.reload();
+    } catch (err) {
+      console.error('Failed to reset demo:', err);
+    } finally {
+      setLocalResetting(false);
+    }
+  };
+
+  const isButtonResetting = isResetting || localResetting;
+
   return (
     <aside className="w-64 bg-canvas-900 border-r border-canvas-800 flex flex-col justify-between h-screen sticky top-0 select-none">
       <div>
@@ -109,16 +129,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ onResetDemo, isResetting }) =>
           </div>
         </div>
 
-        {onResetDemo && (
-          <button
-            onClick={onResetDemo}
-            disabled={isResetting}
-            className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-canvas-800 hover:bg-canvas-700 text-graphite-300 hover:text-graphite-100 text-xs font-medium border border-canvas-700 transition-all disabled:opacity-50"
-          >
-            <RotateCcw className={`w-3.5 h-3.5 ${isResetting ? 'animate-spin' : ''}`} />
-            <span>Reset Demo Scenarios</span>
-          </button>
-        )}
+        <button
+          onClick={handleResetClick}
+          disabled={isButtonResetting}
+          className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-canvas-800 hover:bg-canvas-700 text-graphite-300 hover:text-graphite-100 text-xs font-medium border border-canvas-700 transition-all disabled:opacity-50"
+          title="Reset environment to default seed scenarios"
+        >
+          <RotateCcw className={`w-3.5 h-3.5 ${isButtonResetting ? 'animate-spin' : ''}`} />
+          <span>{isButtonResetting ? 'Resetting Demo...' : 'Reset Demo Scenarios'}</span>
+        </button>
       </div>
     </aside>
   );

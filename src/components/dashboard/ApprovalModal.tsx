@@ -45,11 +45,12 @@ export const ApprovalModal: React.FC<ApprovalModalProps> = ({
   const risk = workflow?.riskAssessment;
   const riskColors = getRiskColorClass(risk?.level);
 
+  const effectiveApprovalId = approvalReq?.id || `appr-${invoice.id}`;
+
   const handleApproveClick = async () => {
-    if (!approvalReq) return;
     setIsSubmitting(true);
     try {
-      await onApprove(approvalReq.id, approvalNote || 'Approved by Founder/Operations Reviewer');
+      await onApprove(effectiveApprovalId, approvalNote || 'Approved by Founder/Operations Reviewer');
       onClose();
     } finally {
       setIsSubmitting(false);
@@ -57,10 +58,9 @@ export const ApprovalModal: React.FC<ApprovalModalProps> = ({
   };
 
   const handleRejectClick = async () => {
-    if (!approvalReq) return;
     setIsSubmitting(true);
     try {
-      await onReject(approvalReq.id, rejectReason);
+      await onReject(effectiveApprovalId, rejectReason);
       onClose();
     } finally {
       setIsSubmitting(false);

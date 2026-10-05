@@ -64,8 +64,8 @@ export const ProblemSection: React.FC = () => {
 
               <div className="space-y-3 text-xs text-graphite-200">
                 <div className="p-3.5 rounded-xl bg-blue-500/5 border border-blue-500/20 flex items-center justify-between">
-                  <span>Structured multimodal data extraction</span>
-                  <span className="text-[10px] font-mono text-blue-400">Gemini 99% Conf</span>
+                  <span>Confidence-aware structured extraction</span>
+                  <span className="text-[10px] font-mono text-blue-400">Multimodal Gemini</span>
                 </div>
                 <div className="p-3.5 rounded-xl bg-blue-500/5 border border-blue-500/20 flex items-center justify-between">
                   <span>Mathematical PO reconciliation & line item diff</span>
@@ -83,7 +83,7 @@ export const ProblemSection: React.FC = () => {
             </div>
 
             <div className="pt-4 border-t border-canvas-800/80 text-[11px] font-mono text-emerald-400">
-              Result: 76% straight-through automation without ceding financial control.
+              Result: Designed for safe straight-through automation without ceding financial control.
             </div>
           </div>
         </div>

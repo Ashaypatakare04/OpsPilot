@@ -115,7 +115,7 @@ Return JSON with this schema:
       }
     }
 
-    // Deterministic fallback rule engine (Rock solid reliability guarantee)
+    // Deterministic fallback rule engine (Rule-based evaluation fallback)
     return this.deterministicAnalysis(request);
   }
 

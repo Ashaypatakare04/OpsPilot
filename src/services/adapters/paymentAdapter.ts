@@ -50,7 +50,7 @@ export class DemoPaymentAdapter {
       executedAt: timestamp,
       amount: params.amount,
       currency: params.currency,
-      isSimulated: true, // DEMO ENVIRONMENT GUARANTEE
+      isSimulated: true, // DEMO ENVIRONMENT ISOLATION
       verificationStatus: 'VERIFIED',
       verificationProof: `SIM-ACK-${params.bankDetails.bankName.replace(/\s+/g, '')}-${params.bankDetails.accountNumber.slice(-4)}-OK`,
       settlementDetails: {

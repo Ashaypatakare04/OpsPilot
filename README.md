@@ -162,15 +162,15 @@ tools/
 ├── rejectAction()           // Cancels action with human-provided justification
 ├── executePaymentAction()   // Simulated DemoPaymentAdapter execution
 ├── verifyAction()           // Post-execution settlement & general ledger check
-└── writeAuditLog()          // Immutable operational event recording
+└── writeAuditLog()          // Tamper-evident operational event recording
 ```
 
 ---
 
-## 8. Financial Action Safety Guarantee
+## 8. Financial Action Safety Controls
 
 OpsPilot adheres strictly to hackathon financial safety rules:
-- **Demo Environment Guarantee:** Uses `DemoPaymentAdapter` running on simulated NEFT/RTGS rails.
+- **Demo Environment Isolation:** Uses `DemoPaymentAdapter` running on simulated NEFT/RTGS rails.
 - **No Real Money Movement:** Clear simulated flags, masked accounts, and simulated bank acknowledgment proofs.
 - **Judge-Safe Demonstration:** Judges can test every approval, execution, and verification cycle without real-world liability.
 
@@ -179,7 +179,7 @@ OpsPilot adheres strictly to hackathon financial safety rules:
 ## 9. AI Architecture & Gemini Integration
 
 - **Primary Provider:** Google Gemini API (`@google/generative-ai` / `gemini-1.5-flash`).
-- **Resilient Fallback Engine:** If `GEMINI_API_KEY` is omitted or quota is exceeded, OpsPilot seamlessly activates its built-in **Deterministic Autonomous Rule Engine**. The application **never** crashes or halts.
+- **Resilient Fallback Engine:** If `GEMINI_API_KEY` is omitted or quota is exceeded, OpsPilot seamlessly activates its built-in **Deterministic Autonomous Rule Engine**. The application gracefully falls back without interrupting the workflow.
 - **Zero Chain-of-Thought Exfiltration:** Private reasoning tokens are never exposed. OpsPilot presents concise, executive-facing **decision explanations** and structured factor breakdowns.
 
 ---
@@ -216,7 +216,7 @@ cp .env.example .env.local
 GEMINI_API_KEY=your_gemini_api_key_here
 NEXT_PUBLIC_APP_ENV=demo
 ```
-*Note: If no key is supplied, OpsPilot runs flawlessly using its deterministic rule engine.*
+*Note: If no key is supplied, OpsPilot operates reliably using its deterministic rule engine.*
 
 ### 3. Run Automated Test Suite
 ```bash

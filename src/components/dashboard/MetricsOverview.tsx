@@ -12,6 +12,8 @@ import {
 import { Invoice, WorkflowRun } from '@/types';
 import { formatCurrency } from '@/lib/formatters';
 
+import Link from 'next/link';
+
 interface MetricsOverviewProps {
   invoices: Invoice[];
   workflows: WorkflowRun[];
@@ -35,6 +37,7 @@ export const MetricsOverview: React.FC<MetricsOverviewProps> = ({ invoices, work
       icon: FileCheck2,
       color: 'text-emerald-400',
       bg: 'bg-emerald-500/10 border-emerald-500/20',
+      href: '/app/invoices',
     },
     {
       label: 'Approvals Waiting',
@@ -44,6 +47,7 @@ export const MetricsOverview: React.FC<MetricsOverviewProps> = ({ invoices, work
       color: 'text-amber-400',
       bg: 'bg-amber-500/10 border-amber-500/20',
       highlight: approvalsWaiting > 0,
+      href: '/app/approvals',
     },
     {
       label: 'Anomalies Detected',
@@ -52,6 +56,7 @@ export const MetricsOverview: React.FC<MetricsOverviewProps> = ({ invoices, work
       icon: AlertTriangle,
       color: 'text-rose-400',
       bg: 'bg-rose-500/10 border-rose-500/20',
+      href: '/app/workflows',
     },
     {
       label: 'Volume Reviewed',
@@ -60,6 +65,7 @@ export const MetricsOverview: React.FC<MetricsOverviewProps> = ({ invoices, work
       icon: CreditCard,
       color: 'text-blue-400',
       bg: 'bg-blue-500/10 border-blue-500/20',
+      href: '/app/analytics',
     },
   ];
 
@@ -68,21 +74,22 @@ export const MetricsOverview: React.FC<MetricsOverviewProps> = ({ invoices, work
       {metrics.map((m) => {
         const Icon = m.icon;
         return (
-          <div
+          <Link
             key={m.label}
+            href={m.href}
             className={`p-4 rounded-xl bg-canvas-900 border ${
               m.highlight ? 'border-amber-500/40 shadow-sm shadow-amber-500/10' : 'border-canvas-800'
-            } transition-all hover:border-canvas-700`}
+            } transition-all hover:border-canvas-700 hover:scale-[1.01] active:scale-[0.99] group block cursor-pointer`}
           >
             <div className="flex items-center justify-between mb-3">
-              <span className="text-xs text-graphite-400 font-medium">{m.label}</span>
+              <span className="text-xs text-graphite-400 font-medium group-hover:text-graphite-200 transition-colors">{m.label}</span>
               <div className={`p-2 rounded-lg border ${m.bg}`}>
                 <Icon className={`w-4 h-4 ${m.color}`} />
               </div>
             </div>
-            <div className="text-lg font-semibold text-graphite-100 tracking-tight">{m.value}</div>
+            <div className="text-lg font-semibold text-graphite-100 tracking-tight group-hover:text-blue-300 transition-colors">{m.value}</div>
             <div className="text-[11px] text-graphite-500 mt-0.5">{m.sub}</div>
-          </div>
+          </Link>
         );
       })}
     </div>

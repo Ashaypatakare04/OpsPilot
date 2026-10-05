@@ -4,9 +4,10 @@ import React, { useEffect, useState } from 'react';
 import { Sidebar } from '@/components/dashboard/Sidebar';
 import { TopHeader } from '@/components/dashboard/TopHeader';
 import { ApprovalModal } from '@/components/dashboard/ApprovalModal';
+import { InvoiceUploader } from '@/components/dashboard/InvoiceUploader';
 import { Invoice, WorkflowRun } from '@/types';
 import { formatCurrency, formatDate, getRiskColorClass } from '@/lib/formatters';
-import { ShieldAlert, CheckCircle2, XCircle, AlertTriangle, ArrowRight } from 'lucide-react';
+import { ShieldAlert, CheckCircle2, Sparkles } from 'lucide-react';
 
 export default function ApprovalsPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -14,16 +15,32 @@ export default function ApprovalsPage() {
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [selectedWorkflow, setSelectedWorkflow] = useState<WorkflowRun | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isUploadOpen, setIsUploadOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 4000);
+  };
 
   const loadData = async () => {
-    const [invRes, wfRes] = await Promise.all([
-      fetch('/api/invoices'),
-      fetch('/api/workflows'),
-    ]);
-    const invData = await invRes.json();
-    const wfData = await wfRes.json();
-    if (invData.invoices) setInvoices(invData.invoices);
-    if (wfData.workflows) setWorkflows(wfData.workflows);
+    setIsLoading(true);
+    try {
+      const [invRes, wfRes] = await Promise.all([
+        fetch('/api/invoices'),
+        fetch('/api/workflows'),
+      ]);
+      const invData = await invRes.json();
+      const wfData = await wfRes.json();
+      if (invData.invoices) setInvoices(invData.invoices);
+      if (wfData.workflows) setWorkflows(wfData.workflows);
+    } catch (err) {
+      console.error('Error loading approvals data:', err);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -33,30 +50,129 @@ export default function ApprovalsPage() {
   const pendingInvoices = invoices.filter((i) => i.status === 'AWAITING_APPROVAL');
 
   const handleApprove = async (approvalId: string, note?: string) => {
-    await fetch('/api/agent/approve', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ approvalId, note, approvedBy: 'Founder / Finance Officer' }),
-    });
-    await loadData();
+    try {
+      const res = await fetch('/api/agent/approve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ approvalId, note, approvedBy: 'Founder / Finance Officer' }),
+      });
+      const data = await res.json();
+      if (data.workflow) {
+        showToast('Approval granted. Simulated payment executed & verified.');
+      }
+      await loadData();
+    } catch (err) {
+      console.error('Approval failed:', err);
+      showToast('Approval action failed.');
+    }
   };
 
   const handleReject = async (approvalId: string, reason: string) => {
-    await fetch('/api/agent/reject', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ approvalId, reason, rejectedBy: 'Founder / Finance Officer' }),
-    });
-    await loadData();
+    try {
+      const res = await fetch('/api/agent/reject', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ approvalId, reason, rejectedBy: 'Founder / Finance Officer' }),
+      });
+      const data = await res.json();
+      if (data.workflow) {
+        showToast('Payment rejected. Action terminated safely without moving funds.');
+      }
+      await loadData();
+    } catch (err) {
+      console.error('Rejection failed:', err);
+      showToast('Rejection action failed.');
+    }
+  };
+
+  const handleSelectScenario = async (key: 'SAFE' | 'MISMATCH' | 'DUPLICATE' | 'UNKNOWN' | 'HIGH_VALUE') => {
+    const idMap: Record<string, string> = {
+      SAFE: 'inv-1041',
+      MISMATCH: 'inv-1042',
+      DUPLICATE: 'inv-1042-dup',
+      UNKNOWN: 'inv-9901',
+      HIGH_VALUE: 'inv-5520',
+    };
+
+    const targetId = idMap[key];
+    const targetInvoice = invoices.find((i) => i.id === targetId);
+    const targetWf = workflows.find((w) => w.invoiceId === targetId);
+
+    if (targetInvoice) {
+      setSelectedInvoice(targetInvoice);
+      setSelectedWorkflow(targetWf || null);
+
+      if (targetInvoice.status === 'AWAITING_APPROVAL') {
+        setIsModalOpen(true);
+        showToast(`Inspecting approval requirement for ${targetInvoice.vendorName}`);
+      } else {
+        showToast(`Invoice #${targetInvoice.invoiceNumber} is in status: ${targetInvoice.status}`);
+      }
+    }
+  };
+
+  const handleUploadCustom = async (invoiceData: Partial<Invoice>) => {
+    setIsProcessing(true);
+    try {
+      const res = await fetch('/api/invoices', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(invoiceData),
+      });
+      const data = await res.json();
+      if (data.invoice) {
+        showToast(`Ingesting #${data.invoice.invoiceNumber} and evaluating policy...`);
+        const runRes = await fetch('/api/agent/run', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ invoiceId: data.invoice.id }),
+        });
+        const runData = await runRes.json();
+        await loadData();
+        if (runData.workflow?.status === 'AWAITING_APPROVAL') {
+          setSelectedInvoice(data.invoice);
+          setSelectedWorkflow(runData.workflow);
+          setIsModalOpen(true);
+          showToast('Invoice routed to human approval gate!');
+        } else {
+          showToast(`Autonomous agent decision: ${runData.workflow?.autonomyDecision || 'COMPLETED'}`);
+        }
+      }
+    } catch (err) {
+      console.error('Custom invoice error:', err);
+      showToast('Failed to ingest custom invoice.');
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   return (
     <div className="flex min-h-screen bg-canvas-950 text-graphite-100">
       <Sidebar />
       <div className="flex-1 flex flex-col min-w-0">
-        <TopHeader onOpenUpload={() => {}} onRefresh={loadData} />
+        <TopHeader
+          onOpenUpload={() => setIsUploadOpen(true)}
+          onRefresh={loadData}
+          isRefreshing={isLoading}
+        />
 
         <main className="p-6 space-y-6 max-w-7xl w-full mx-auto">
+          {/* Toast Notification */}
+          {toastMessage && (
+            <div className="p-3.5 rounded-xl bg-blue-500/10 border border-blue-500/30 text-blue-200 text-xs flex items-center justify-between shadow-lg animate-in slide-in-from-top duration-200">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-blue-400 shrink-0" />
+                <span>{toastMessage}</span>
+              </div>
+              <button
+                onClick={() => setToastMessage(null)}
+                className="text-graphite-400 hover:text-graphite-200 text-xs font-mono"
+              >
+                Dismiss
+              </button>
+            </div>
+          )}
+
           <div>
             <div className="flex items-center gap-2">
               <h2 className="text-xl font-bold tracking-tight text-graphite-100">Human Approval Gate</h2>
@@ -119,7 +235,7 @@ export default function ApprovalsPage() {
                           setSelectedWorkflow(wf || null);
                           setIsModalOpen(true);
                         }}
-                        className="flex items-center gap-2 px-4 py-2 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold shadow-sm transition-all hover:scale-[1.02]"
+                        className="flex items-center gap-2 px-4 py-2 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold shadow-sm transition-all hover:scale-[1.02] active:scale-[0.98]"
                       >
                         <ShieldAlert className="w-4 h-4" />
                         <span>Inspect & Decide</span>
@@ -140,6 +256,14 @@ export default function ApprovalsPage() {
         onClose={() => setIsModalOpen(false)}
         onApprove={handleApprove}
         onReject={handleReject}
+      />
+
+      <InvoiceUploader
+        isOpen={isUploadOpen}
+        onClose={() => setIsUploadOpen(false)}
+        onSelectScenario={handleSelectScenario}
+        onUploadCustom={handleUploadCustom}
+        isProcessing={isProcessing}
       />
     </div>
   );

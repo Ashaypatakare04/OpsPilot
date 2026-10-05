@@ -3,20 +3,92 @@
 import React, { useEffect, useState } from 'react';
 import { Sidebar } from '@/components/dashboard/Sidebar';
 import { TopHeader } from '@/components/dashboard/TopHeader';
-import { AuditLogEntry } from '@/types';
-import { Activity, ShieldCheck, CheckCircle2, AlertTriangle, XCircle, Clock } from 'lucide-react';
+import { InvoiceUploader } from '@/components/dashboard/InvoiceUploader';
+import { AuditLogEntry, Invoice } from '@/types';
+import { Activity, ShieldCheck, CheckCircle2, AlertTriangle, XCircle, Clock, Sparkles } from 'lucide-react';
 import { getRiskColorClass } from '@/lib/formatters';
 
 export default function ActivityPage() {
   const [logs, setLogs] = useState<AuditLogEntry[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isUploadOpen, setIsUploadOpen] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 4000);
+  };
+
+  const loadData = async () => {
+    setIsLoading(true);
+    try {
+      const res = await fetch('/api/audit-logs');
+      const data = await res.json();
+      if (data.logs) setLogs(data.logs);
+    } catch (err) {
+      console.error('Failed to load audit logs:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    fetch('/api/audit-logs')
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.logs) setLogs(data.logs);
-      });
+    loadData();
   }, []);
+
+  const handleSelectScenario = async (key: 'SAFE' | 'MISMATCH' | 'DUPLICATE' | 'UNKNOWN' | 'HIGH_VALUE') => {
+    const idMap: Record<string, string> = {
+      SAFE: 'inv-1041',
+      MISMATCH: 'inv-1042',
+      DUPLICATE: 'inv-1042-dup',
+      UNKNOWN: 'inv-9901',
+      HIGH_VALUE: 'inv-5520',
+    };
+
+    const targetInvoiceId = idMap[key];
+    setIsProcessing(true);
+    try {
+      showToast(`Running scenario ${key} through audit trail...`);
+      await fetch('/api/agent/run', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ invoiceId: targetInvoiceId }),
+      });
+      await loadData();
+      showToast(`Audit trail updated with scenario ${key} tool traces`);
+    } catch (err) {
+      console.error('Failed to run scenario:', err);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleUploadCustom = async (invoiceData: Partial<Invoice>) => {
+    setIsProcessing(true);
+    try {
+      const res = await fetch('/api/invoices', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(invoiceData),
+      });
+      const data = await res.json();
+      if (data.invoice) {
+        showToast(`Ingesting #${data.invoice.invoiceNumber}...`);
+        await fetch('/api/agent/run', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ invoiceId: data.invoice.id }),
+        });
+        await loadData();
+        showToast(`Logged verified audit steps for #${data.invoice.invoiceNumber}`);
+      }
+    } catch (err) {
+      console.error('Custom invoice error:', err);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
 
   const getResultBadge = (res: string) => {
     switch (res) {
@@ -38,11 +110,31 @@ export default function ActivityPage() {
     <div className="flex min-h-screen bg-canvas-950 text-graphite-100">
       <Sidebar />
       <div className="flex-1 flex flex-col min-w-0">
-        <TopHeader onOpenUpload={() => {}} />
+        <TopHeader
+          onOpenUpload={() => setIsUploadOpen(true)}
+          onRefresh={loadData}
+          isRefreshing={isLoading}
+        />
 
         <main className="p-6 space-y-6 max-w-7xl w-full mx-auto">
+          {/* Toast Notification */}
+          {toastMessage && (
+            <div className="p-3.5 rounded-xl bg-blue-500/10 border border-blue-500/30 text-blue-200 text-xs flex items-center justify-between shadow-lg animate-in slide-in-from-top duration-200">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-blue-400 shrink-0" />
+                <span>{toastMessage}</span>
+              </div>
+              <button
+                onClick={() => setToastMessage(null)}
+                className="text-graphite-400 hover:text-graphite-200 text-xs font-mono"
+              >
+                Dismiss
+              </button>
+            </div>
+          )}
+
           <div>
-            <h2 className="text-xl font-bold tracking-tight text-graphite-100">Immutable Audit Trail</h2>
+            <h2 className="text-xl font-bold tracking-tight text-graphite-100">Tamper-Evident Audit Trail</h2>
             <p className="text-xs text-graphite-400 mt-0.5">
               Cryptographically trace all autonomous actions, tool executions, and human decisions
             </p>
@@ -87,6 +179,14 @@ export default function ActivityPage() {
           </div>
         </main>
       </div>
+
+      <InvoiceUploader
+        isOpen={isUploadOpen}
+        onClose={() => setIsUploadOpen(false)}
+        onSelectScenario={handleSelectScenario}
+        onUploadCustom={handleUploadCustom}
+        isProcessing={isProcessing}
+      />
     </div>
   );
 }

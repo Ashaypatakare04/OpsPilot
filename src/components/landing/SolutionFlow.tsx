@@ -45,7 +45,7 @@ export const SolutionFlow: React.FC = () => {
     {
       num: '06',
       title: 'Verify & Audit',
-      desc: 'Confirms ledger settlement and seals an immutable audit trail entry.',
+      desc: 'Confirms ledger settlement and seals a tamper-evident audit trail entry.',
       icon: CheckCircle2,
     },
   ];

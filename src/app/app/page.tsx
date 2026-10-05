@@ -45,10 +45,16 @@ export default function DashboardPage() {
       const invData = await invRes.json();
       const wfData = await wfRes.json();
 
-      if (invData.invoices) setInvoices(invData.invoices);
-      if (wfData.workflows) setWorkflows(wfData.workflows);
+      const freshInvoices = invData.invoices || [];
+      const freshWorkflows = wfData.workflows || [];
+
+      if (invData.invoices) setInvoices(freshInvoices);
+      if (wfData.workflows) setWorkflows(freshWorkflows);
+
+      return { invoices: freshInvoices, workflows: freshWorkflows };
     } catch (err) {
       console.error('Error fetching dashboard data:', err);
+      return { invoices: [], workflows: [] };
     } finally {
       setIsLoading(false);
     }
@@ -63,6 +69,9 @@ export default function DashboardPage() {
     try {
       await fetch('/api/reset', { method: 'POST' });
       await loadData();
+      setIsTimelineOpen(false);
+      setIsApprovalOpen(false);
+      setIsDrawerOpen(false);
       showToast('Demo environment reset to pristine baseline scenarios.');
     } catch (err) {
       console.error('Failed to reset demo:', err);
@@ -80,14 +89,17 @@ export default function DashboardPage() {
         body: JSON.stringify({ invoiceId }),
       });
       const data = await res.json();
+      const fresh = await loadData();
       if (data.workflow) {
         setSelectedWorkflow(data.workflow);
-        const inv = invoices.find((i) => i.id === invoiceId);
+        const inv = fresh.invoices.find((i: Invoice) => i.id === invoiceId) || invoices.find((i) => i.id === invoiceId);
         if (inv) setSelectedInvoice(inv);
         setIsTimelineOpen(true);
+        setTimeout(() => {
+          document.getElementById('workflow-timeline-section')?.scrollIntoView({ behavior: 'smooth' });
+        }, 100);
         showToast(`Agent execution finished with decision: ${data.workflow.autonomyDecision}`);
       }
-      await loadData();
     } catch (err) {
       console.error('Agent execution error:', err);
     } finally {
@@ -142,18 +154,32 @@ export default function DashboardPage() {
     };
 
     const targetId = idMap[key];
-    const targetInvoice = invoices.find((i) => i.id === targetId);
+    let targetInvoice = invoices.find((i) => i.id === targetId);
+    let wf = workflows.find((w) => w.invoiceId === targetId);
+
+    if (!targetInvoice || !wf) {
+      const fresh = await loadData();
+      targetInvoice = fresh.invoices.find((i: Invoice) => i.id === targetId);
+      wf = fresh.workflows.find((w: WorkflowRun) => w.invoiceId === targetId);
+    }
 
     if (targetInvoice) {
       setSelectedInvoice(targetInvoice);
-      const wf = workflows.find((w) => w.invoiceId === targetInvoice.id);
       setSelectedWorkflow(wf || null);
 
       if (targetInvoice.status === 'AWAITING_APPROVAL') {
         setIsApprovalOpen(true);
+        showToast(`Opened Scenario (${key}): Awaiting human approval`);
       } else {
         setIsTimelineOpen(true);
+        setTimeout(() => {
+          document.getElementById('workflow-timeline-section')?.scrollIntoView({ behavior: 'smooth' });
+        }, 100);
+        showToast(`Inspecting Scenario (${key}): ${targetInvoice.vendorName}`);
       }
+    } else {
+      showToast(`Loading scenario ${key}...`);
+      await loadData();
     }
   };
 
@@ -166,8 +192,7 @@ export default function DashboardPage() {
       });
       const data = await res.json();
       if (data.invoice) {
-        await loadData();
-        // Immediately trigger agent on uploaded invoice
+        showToast(`Invoice #${data.invoice.invoiceNumber} ingested. Launching autonomous agent...`);
         await handleRunAgent(data.invoice.id);
       }
     } catch (err) {
@@ -220,15 +245,29 @@ export default function DashboardPage() {
           <OperationsInbox
             invoices={invoices}
             workflows={workflows}
+            onSelectInvoice={(inv, wf) => {
+              setSelectedInvoice(inv);
+              setSelectedWorkflow(wf || workflows.find((w) => w.invoiceId === inv.id) || null);
+              setIsDrawerOpen(true);
+            }}
             onReviewApproval={(inv, wf) => {
               setSelectedInvoice(inv);
-              setSelectedWorkflow(wf || null);
+              setSelectedWorkflow(wf || workflows.find((w) => w.invoiceId === inv.id) || null);
               setIsApprovalOpen(true);
             }}
             onViewWorkflow={(inv, wf) => {
               setSelectedInvoice(inv);
-              setSelectedWorkflow(wf || null);
-              setIsTimelineOpen(true);
+              const targetWf = wf || workflows.find((w) => w.invoiceId === inv.id);
+              if (targetWf) {
+                setSelectedWorkflow(targetWf);
+                setIsTimelineOpen(true);
+                setTimeout(() => {
+                  document.getElementById('workflow-timeline-section')?.scrollIntoView({ behavior: 'smooth' });
+                }, 100);
+              } else {
+                showToast(`Launching agent for #${inv.invoiceNumber}...`);
+                handleRunAgent(inv.id);
+              }
             }}
             onRunAgent={handleRunAgent}
             isRunningAgent={isRunningAgent}
@@ -240,7 +279,7 @@ export default function DashboardPage() {
       <ApprovalModal
         isOpen={isApprovalOpen}
         invoice={selectedInvoice}
-        workflow={selectedWorkflow}
+        workflow={selectedWorkflow || (selectedInvoice ? workflows.find((w) => w.invoiceId === selectedInvoice.id) || null : null)}
         onClose={() => setIsApprovalOpen(false)}
         onApprove={handleApprove}
         onReject={handleReject}
@@ -259,7 +298,7 @@ export default function DashboardPage() {
       <InvoiceDetailDrawer
         isOpen={isDrawerOpen}
         invoice={selectedInvoice}
-        workflow={selectedWorkflow}
+        workflow={selectedWorkflow || (selectedInvoice ? workflows.find((w) => w.invoiceId === selectedInvoice.id) || null : null)}
         onClose={() => setIsDrawerOpen(false)}
         onOpenApproval={() => {
           setIsDrawerOpen(false);
@@ -267,7 +306,17 @@ export default function DashboardPage() {
         }}
         onViewWorkflow={() => {
           setIsDrawerOpen(false);
-          setIsTimelineOpen(true);
+          const targetWf = selectedWorkflow || (selectedInvoice ? workflows.find((w) => w.invoiceId === selectedInvoice.id) || null : null);
+          if (targetWf) {
+            setSelectedWorkflow(targetWf);
+            setIsTimelineOpen(true);
+            setTimeout(() => {
+              document.getElementById('workflow-timeline-section')?.scrollIntoView({ behavior: 'smooth' });
+            }, 100);
+          } else if (selectedInvoice) {
+            showToast(`Generating workflow for #${selectedInvoice.invoiceNumber}...`);
+            handleRunAgent(selectedInvoice.id);
+          }
         }}
         onRunAgent={(id) => {
           setIsDrawerOpen(false);

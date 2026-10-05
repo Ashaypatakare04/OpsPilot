@@ -34,6 +34,8 @@ export const InvoiceUploader: React.FC<InvoiceUploaderProps> = ({
   const [activeTab, setActiveTab] = useState<'SCENARIOS' | 'UPLOAD'>('SCENARIOS');
   const [isDragging, setIsDragging] = useState(false);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement | null>(null);
 
   // Custom Form state
   const [customVendor, setCustomVendor] = useState('Stripe Payments Corp');
@@ -108,33 +110,40 @@ export const InvoiceUploader: React.FC<InvoiceUploaderProps> = ({
 
   const handleCustomSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const amountNum = parseFloat(customAmount) || 30000;
-    await onUploadCustom({
-      vendorName: customVendor,
-      invoiceNumber: customInvoiceNo,
-      totalAmount: amountNum,
-      subtotal: Math.round(amountNum * 0.82),
-      taxAmount: Math.round(amountNum * 0.18),
-      currency: 'INR',
-      purchaseOrderNumber: customPO || undefined,
-      lineItems: [
-        {
-          id: 'li-c1',
-          description: `${customVendor} Operational Services`,
-          quantity: 1,
-          unitPrice: amountNum,
-          total: amountNum,
+    setIsSubmitting(true);
+    try {
+      const amountNum = parseFloat(customAmount) || 30000;
+      await onUploadCustom({
+        vendorName: customVendor,
+        invoiceNumber: customInvoiceNo,
+        totalAmount: amountNum,
+        subtotal: Math.round(amountNum * 0.82),
+        taxAmount: Math.round(amountNum * 0.18),
+        currency: 'INR',
+        purchaseOrderNumber: customPO || undefined,
+        lineItems: [
+          {
+            id: 'li-c1',
+            description: `${customVendor} Operational Services`,
+            quantity: 1,
+            unitPrice: amountNum,
+            total: amountNum,
+          },
+        ],
+        paymentDetails: {
+          accountName: customVendor,
+          accountNumber: '998877665544',
+          bankName: 'Standard Chartered',
+          routingOrIfsc: 'SCBL0036001',
+          paymentMethod: 'NEFT',
         },
-      ],
-      paymentDetails: {
-        accountName: customVendor,
-        accountNumber: '998877665544',
-        bankName: 'Standard Chartered',
-        routingOrIfsc: 'SCBL0036001',
-        paymentMethod: 'NEFT',
-      },
-    });
-    onClose();
+      });
+      onClose();
+    } catch (err) {
+      console.error('Error submitting invoice:', err);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleDrop = (e: React.DragEvent) => {
@@ -143,9 +152,19 @@ export const InvoiceUploader: React.FC<InvoiceUploaderProps> = ({
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       const file = e.dataTransfer.files[0];
       setUploadedFile(file);
-      // Auto-populate based on file
       setCustomInvoiceNo(`INV-${Math.floor(1000 + Math.random() * 9000)}`);
-      setCustomVendor(file.name.replace(/\.[^/.]+$/, '').split('_')[0] || 'Cloud Services');
+      const baseName = file.name.replace(/\.[^/.]+$/, '').replace(/[_-]/g, ' ');
+      setCustomVendor(baseName.charAt(0).toUpperCase() + baseName.slice(1));
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setUploadedFile(file);
+      setCustomInvoiceNo(`INV-${Math.floor(1000 + Math.random() * 9000)}`);
+      const baseName = file.name.replace(/\.[^/.]+$/, '').replace(/[_-]/g, ' ');
+      setCustomVendor(baseName.charAt(0).toUpperCase() + baseName.slice(1));
     }
   };
 
@@ -211,12 +230,21 @@ export const InvoiceUploader: React.FC<InvoiceUploaderProps> = ({
                 const Icon = sc.icon;
                 return (
                   <div
+                    role="button"
+                    tabIndex={0}
                     key={sc.key}
                     onClick={() => {
                       onSelectScenario(sc.key);
                       onClose();
                     }}
-                    className={`p-4 rounded-xl border transition-all cursor-pointer group ${sc.color}`}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        onSelectScenario(sc.key);
+                        onClose();
+                      }
+                    }}
+                    className={`p-4 rounded-xl border transition-all cursor-pointer group hover:scale-[1.01] active:scale-[0.99] focus:outline-none focus:ring-2 focus:ring-blue-500/50 ${sc.color}`}
                   >
                     <div className="flex items-center justify-between gap-3 mb-1.5">
                       <div className="flex items-center gap-2">
@@ -232,11 +260,11 @@ export const InvoiceUploader: React.FC<InvoiceUploaderProps> = ({
 
                     <p className="text-xs text-graphite-300 mb-2">{sc.description}</p>
 
-                    <div className="flex items-center justify-between text-[11px] font-mono text-graphite-400 pt-1 border-t border-canvas-800/80">
+                    <div className="flex items-center justify-between text-[11px] font-mono text-graphite-400 pt-2 border-t border-canvas-800/80">
                       <span>{sc.poText}</span>
-                      <span className="flex items-center gap-1 font-semibold text-graphite-200 group-hover:translate-x-0.5 transition-transform">
+                      <span className="flex items-center gap-1.5 font-semibold text-blue-400 group-hover:text-blue-300 transition-colors">
                         <span>Expected: {sc.expectedOutcome}</span>
-                        <ArrowRight className="w-3 h-3" />
+                        <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
                       </span>
                     </div>
                   </div>
@@ -247,24 +275,33 @@ export const InvoiceUploader: React.FC<InvoiceUploaderProps> = ({
             <form onSubmit={handleCustomSubmit} className="space-y-4">
               {/* Drag and drop box */}
               <div
+                onClick={() => fileInputRef.current?.click()}
                 onDragOver={(e) => {
                   e.preventDefault();
                   setIsDragging(true);
                 }}
                 onDragLeave={() => setIsDragging(false)}
                 onDrop={handleDrop}
-                className={`p-6 border-2 border-dashed rounded-xl text-center transition-all ${
+                className={`p-6 border-2 border-dashed rounded-xl text-center transition-all cursor-pointer ${
                   isDragging
                     ? 'border-blue-400 bg-blue-500/10'
-                    : 'border-canvas-700 bg-canvas-850 hover:border-canvas-600'
+                    : 'border-canvas-700 bg-canvas-850 hover:border-canvas-500 hover:bg-canvas-800/60'
                 }`}
+                title="Click to select file or drag file here"
               >
-                <FileText className="w-8 h-8 mx-auto mb-2 text-graphite-400" />
-                <p className="text-xs font-medium text-graphite-200">
-                  {uploadedFile ? uploadedFile.name : 'Drag & drop an invoice PDF or image here'}
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileChange}
+                  accept=".pdf,.png,.jpg,.jpeg"
+                  className="hidden"
+                />
+                <FileText className="w-8 h-8 mx-auto mb-2 text-blue-400" />
+                <p className="text-xs font-medium text-graphite-100">
+                  {uploadedFile ? uploadedFile.name : 'Click to browse or drag & drop invoice PDF / scan'}
                 </p>
-                <p className="text-[11px] text-graphite-500 mt-1">
-                  Supports PDF, PNG, JPG (Gemini Vision extraction ready)
+                <p className="text-[11px] text-graphite-400 mt-1">
+                  {uploadedFile ? 'File selected. Ready to ingest into autonomous agent.' : 'Supports PDF, PNG, JPG (Multimodal extraction ready)'}
                 </p>
               </div>
 
@@ -314,10 +351,11 @@ export const InvoiceUploader: React.FC<InvoiceUploaderProps> = ({
 
               <button
                 type="submit"
-                disabled={isProcessing}
-                className="w-full py-2.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold transition-all hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50"
+                disabled={isProcessing || isSubmitting}
+                className="w-full py-2.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-sm shadow-blue-500/25 transition-all hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50 flex items-center justify-center gap-2"
               >
-                {isProcessing ? 'Ingesting & Launching Agent...' : 'Ingest & Run Autonomous Agent'}
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>{isProcessing || isSubmitting ? 'Ingesting & Launching Agent...' : 'Ingest & Run Autonomous Agent'}</span>
               </button>
             </form>
           )}

@@ -1,18 +1,98 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Sidebar } from '@/components/dashboard/Sidebar';
 import { TopHeader } from '@/components/dashboard/TopHeader';
-import { BarChart3, TrendingUp, ShieldCheck, Clock, Zap, CheckCircle2 } from 'lucide-react';
+import { InvoiceUploader } from '@/components/dashboard/InvoiceUploader';
+import { Invoice } from '@/types';
+import { BarChart3, TrendingUp, ShieldCheck, Clock, Zap, CheckCircle2, Sparkles } from 'lucide-react';
 
 export default function AnalyticsPage() {
+  const [isUploadOpen, setIsUploadOpen] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 4000);
+  };
+
+  const handleSelectScenario = async (key: 'SAFE' | 'MISMATCH' | 'DUPLICATE' | 'UNKNOWN' | 'HIGH_VALUE') => {
+    const idMap: Record<string, string> = {
+      SAFE: 'inv-1041',
+      MISMATCH: 'inv-1042',
+      DUPLICATE: 'inv-1042-dup',
+      UNKNOWN: 'inv-9901',
+      HIGH_VALUE: 'inv-5520',
+    };
+
+    setIsProcessing(true);
+    try {
+      showToast(`Running scenario ${key} for analytics telemetry...`);
+      await fetch('/api/agent/run', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ invoiceId: idMap[key] }),
+      });
+      showToast(`Analytics telemetry refreshed with scenario ${key}`);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleUploadCustom = async (invoiceData: Partial<Invoice>) => {
+    setIsProcessing(true);
+    try {
+      const res = await fetch('/api/invoices', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(invoiceData),
+      });
+      const data = await res.json();
+      if (data.invoice) {
+        showToast(`Ingesting #${data.invoice.invoiceNumber}...`);
+        await fetch('/api/agent/run', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ invoiceId: data.invoice.id }),
+        });
+        showToast(`Analytics metrics updated for #${data.invoice.invoiceNumber}`);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   return (
     <div className="flex min-h-screen bg-canvas-950 text-graphite-100">
       <Sidebar />
       <div className="flex-1 flex flex-col min-w-0">
-        <TopHeader onOpenUpload={() => {}} />
+        <TopHeader
+          onOpenUpload={() => setIsUploadOpen(true)}
+          onRefresh={() => showToast('Analytics calculations up to date.')}
+        />
 
         <main className="p-6 space-y-6 max-w-7xl w-full mx-auto">
+          {/* Toast Notification */}
+          {toastMessage && (
+            <div className="p-3.5 rounded-xl bg-blue-500/10 border border-blue-500/30 text-blue-200 text-xs flex items-center justify-between shadow-lg animate-in slide-in-from-top duration-200">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-blue-400 shrink-0" />
+                <span>{toastMessage}</span>
+              </div>
+              <button
+                onClick={() => setToastMessage(null)}
+                className="text-graphite-400 hover:text-graphite-200 text-xs font-mono"
+              >
+                Dismiss
+              </button>
+            </div>
+          )}
+
           <div>
             <h2 className="text-xl font-bold tracking-tight text-graphite-100">Operations & Autonomy Analytics</h2>
             <p className="text-xs text-graphite-400 mt-0.5">
@@ -22,28 +102,28 @@ export default function AnalyticsPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="p-5 rounded-xl bg-canvas-900 border border-canvas-800 space-y-2">
-              <span className="text-xs font-medium text-graphite-400">Autonomous Execution Rate</span>
-              <div className="text-3xl font-bold text-emerald-400">76.4%</div>
-              <p className="text-[11px] text-graphite-500">Invoices processed straight-through without human touch</p>
+              <span className="text-xs font-medium text-graphite-400">Straight-Through Processing</span>
+              <div className="text-3xl font-bold text-emerald-400">Policy-Bounded</div>
+              <p className="text-[11px] text-graphite-500">Designed for safe straight-through automation without ceding financial control</p>
             </div>
 
             <div className="p-5 rounded-xl bg-canvas-900 border border-canvas-800 space-y-2">
-              <span className="text-xs font-medium text-graphite-400">Discrepancies Caught</span>
-              <div className="text-3xl font-bold text-rose-400">₹1,00,000+</div>
-              <p className="text-[11px] text-graphite-500">Duplicate billings & unauthorized PO overages prevented</p>
+              <span className="text-xs font-medium text-graphite-400">Discrepancy Protection</span>
+              <div className="text-3xl font-bold text-rose-400">Active Guardrails</div>
+              <p className="text-[11px] text-graphite-500">Duplicate billings & unauthorized PO overages intercepted before payment</p>
             </div>
 
             <div className="p-5 rounded-xl bg-canvas-900 border border-canvas-800 space-y-2">
-              <span className="text-xs font-medium text-graphite-400">Cycle Time Reduction</span>
-              <div className="text-3xl font-bold text-blue-400">4.2 days → 1.8s</div>
-              <p className="text-[11px] text-graphite-500">Average reconciliation and ledger settlement velocity</p>
+              <span className="text-xs font-medium text-graphite-400">Reconciliation Velocity</span>
+              <div className="text-3xl font-bold text-blue-400">Sub-Second</div>
+              <p className="text-[11px] text-graphite-500">Deterministic verification & guardrail evaluation per invoice</p>
             </div>
           </div>
 
           {/* Anomaly Breakdown */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="p-5 rounded-xl bg-canvas-900 border border-canvas-800 space-y-4">
-              <h3 className="text-sm font-semibold text-graphite-200">Anomaly Distribution</h3>
+              <h3 className="text-sm font-semibold text-graphite-200">Incident Category Breakdown</h3>
               <div className="space-y-3 text-xs">
                 <div>
                   <div className="flex justify-between mb-1">
@@ -107,6 +187,14 @@ export default function AnalyticsPage() {
           </div>
         </main>
       </div>
+
+      <InvoiceUploader
+        isOpen={isUploadOpen}
+        onClose={() => setIsUploadOpen(false)}
+        onSelectScenario={handleSelectScenario}
+        onUploadCustom={handleUploadCustom}
+        isProcessing={isProcessing}
+      />
     </div>
   );
 }

@@ -26,7 +26,7 @@ export const WorkflowTimeline: React.FC<WorkflowTimelineProps> = ({ workflow, on
 
   if (!workflow) {
     return (
-      <div className="p-8 text-center text-graphite-400 bg-canvas-900 border border-canvas-800 rounded-xl">
+      <div id="workflow-timeline-section" className="p-8 text-center text-graphite-400 bg-canvas-900 border border-canvas-800 rounded-xl">
         <Layers className="w-8 h-8 mx-auto mb-2 text-graphite-600" />
         <p className="text-sm font-medium text-graphite-300">No active workflow selected</p>
         <p className="text-xs text-graphite-500 mt-1">Select an invoice to inspect its autonomous execution lifecycle.</p>
@@ -55,7 +55,7 @@ export const WorkflowTimeline: React.FC<WorkflowTimelineProps> = ({ workflow, on
   const currentStep = selectedStep || workflow.timeline[workflow.timeline.length - 1];
 
   return (
-    <div className="bg-canvas-900 border border-canvas-800 rounded-xl overflow-hidden shadow-sm">
+    <div id="workflow-timeline-section" className="bg-canvas-900 border border-canvas-800 rounded-xl overflow-hidden shadow-sm">
       {/* Header */}
       <div className="p-4 sm:p-5 border-b border-canvas-800 flex items-center justify-between">
         <div>

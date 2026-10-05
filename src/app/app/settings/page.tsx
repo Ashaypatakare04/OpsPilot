@@ -1,9 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Sidebar } from '@/components/dashboard/Sidebar';
 import { TopHeader } from '@/components/dashboard/TopHeader';
-import { Settings, ShieldCheck, Sliders, Save, Check } from 'lucide-react';
+import { InvoiceUploader } from '@/components/dashboard/InvoiceUploader';
+import { Invoice } from '@/types';
+import { Settings, ShieldCheck, Sliders, Save, Check, Sparkles } from 'lucide-react';
 
 export default function SettingsPage() {
   const [autoLimit, setAutoLimit] = useState(50000);
@@ -12,20 +14,107 @@ export default function SettingsPage() {
   const [varianceTolerance, setVarianceTolerance] = useState(0);
   const [blockDuplicates, setBlockDuplicates] = useState(true);
   const [saved, setSaved] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isUploadOpen, setIsUploadOpen] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  const handleSave = (e: React.FormEvent) => {
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 4000);
+  };
+
+  const loadPolicy = async () => {
+    try {
+      const res = await fetch('/api/policy');
+      const data = await res.json();
+      if (data.policy) {
+        setAutoLimit(data.policy.autoApprovalMaxAmount ?? 50000);
+        setRequirePO(data.policy.requireExistingPO ?? true);
+        setRequireVerifiedVendor(data.policy.requireVerifiedVendor ?? true);
+        setVarianceTolerance(data.policy.maxAllowedVariancePercent ?? 0);
+        setBlockDuplicates(data.policy.blockDuplicateInvoices ?? true);
+      }
+    } catch (err) {
+      console.error('Failed to load policy:', err);
+    }
+  };
+
+  useEffect(() => {
+    loadPolicy();
+  }, []);
+
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSaved(true);
-    setTimeout(() => setSaved(false), 3000);
+    setIsSaving(true);
+    try {
+      await fetch('/api/policy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          autoApprovalMaxAmount: autoLimit,
+          requireExistingPO: requirePO,
+          requireVerifiedVendor,
+          maxAllowedVariancePercent: varianceTolerance,
+          blockDuplicateInvoices: blockDuplicates,
+        }),
+      });
+      setSaved(true);
+      showToast('Autonomy & Risk Policy updated and persisted.');
+      setTimeout(() => setSaved(false), 3000);
+    } catch (err) {
+      console.error('Failed to save policy:', err);
+      showToast('Failed to save policy settings.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleSelectScenario = async (key: string) => {
+    showToast(`Scenario ${key} selected. Ready to run under current governance policy.`);
+  };
+
+  const handleUploadCustom = async (invoiceData: Partial<Invoice>) => {
+    try {
+      const res = await fetch('/api/invoices', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(invoiceData),
+      });
+      const data = await res.json();
+      if (data.invoice) {
+        showToast(`Invoice #${data.invoice.invoiceNumber} uploaded successfully.`);
+      }
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   return (
     <div className="flex min-h-screen bg-canvas-950 text-graphite-100">
       <Sidebar />
       <div className="flex-1 flex flex-col min-w-0">
-        <TopHeader onOpenUpload={() => {}} />
+        <TopHeader
+          onOpenUpload={() => setIsUploadOpen(true)}
+          onRefresh={loadPolicy}
+        />
 
         <main className="p-6 space-y-6 max-w-4xl w-full mx-auto">
+          {/* Toast Notification */}
+          {toastMessage && (
+            <div className="p-3.5 rounded-xl bg-blue-500/10 border border-blue-500/30 text-blue-200 text-xs flex items-center justify-between shadow-lg animate-in slide-in-from-top duration-200">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-blue-400 shrink-0" />
+                <span>{toastMessage}</span>
+              </div>
+              <button
+                onClick={() => setToastMessage(null)}
+                className="text-graphite-400 hover:text-graphite-200 text-xs font-mono"
+              >
+                Dismiss
+              </button>
+            </div>
+          )}
+
           <div>
             <h2 className="text-xl font-bold tracking-tight text-graphite-100">Autonomy & Risk Policy Settings</h2>
             <p className="text-xs text-graphite-400 mt-0.5">
@@ -135,20 +224,28 @@ export default function SettingsPage() {
               {saved && (
                 <span className="text-xs text-emerald-400 flex items-center gap-1.5 font-mono">
                   <Check className="w-3.5 h-3.5" />
-                  <span>Policies updated</span>
+                  <span>Policies updated in database</span>
                 </span>
               )}
               <button
                 type="submit"
-                className="flex items-center gap-2 px-5 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-sm transition-all"
+                disabled={isSaving}
+                className="flex items-center gap-2 px-5 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-sm transition-all disabled:opacity-50"
               >
                 <Save className="w-3.5 h-3.5" />
-                <span>Save Governance Policy</span>
+                <span>{isSaving ? 'Saving...' : 'Save Governance Policy'}</span>
               </button>
             </div>
           </form>
         </main>
       </div>
+
+      <InvoiceUploader
+        isOpen={isUploadOpen}
+        onClose={() => setIsUploadOpen(false)}
+        onSelectScenario={handleSelectScenario as any}
+        onUploadCustom={handleUploadCustom}
+      />
     </div>
   );
 }

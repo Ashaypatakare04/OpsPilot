@@ -54,7 +54,7 @@ export const AutonomyMatrix: React.FC = () => {
             </div>
 
             <div className="p-3 rounded-lg bg-emerald-500/5 border border-emerald-500/10 text-[11px] font-mono text-emerald-300">
-              Action: Fully Autonomous Execution
+              Action: Safe Automated Execution
             </div>
           </div>
 

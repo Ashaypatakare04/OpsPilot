@@ -910,7 +910,9 @@ class MockDatabase {
   }
 
   public getApproval(id: string): ApprovalRequest | undefined {
-    return this.approvals.get(id);
+    return this.approvals.get(id) || Array.from(this.approvals.values()).find(
+      (a) => a.invoiceId === id || a.workflowId === id || a.id.includes(id) || id.includes(a.invoiceId)
+    );
   }
 
   public saveApproval(appr: ApprovalRequest): ApprovalRequest {

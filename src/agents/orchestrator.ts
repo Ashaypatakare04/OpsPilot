@@ -404,7 +404,7 @@ export class InvoiceAgentOrchestrator {
       toolName: 'verifyAction',
       status: 'COMPLETED',
       timestamp: new Date().toLocaleTimeString('en-US', { hour12: false }),
-      summary: `Verified settlement proof ${verifyRes.proof}. Internal audit log locked.`,
+      summary: `Verified settlement proof ${verifyRes.proof}. Internal audit log recorded.`,
     };
 
     const verifyIdx = wf.timeline.findIndex((t) => t.toolName === 'verifyAction');
